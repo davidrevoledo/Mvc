@@ -1,11 +1,16 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Mvc.Testing.Internal;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests
 {
@@ -22,14 +27,22 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         {
         }
 
-        protected override void ConfigureApplication(MvcWebApplicationBuilder<TStartup> builder)
+        protected override void ConfigureApplication(IWebHostBuilder builder)
         {
-            builder.UseRequestCulture("en-GB", "en-US");            
-            builder.ApplicationAssemblies.Clear();
-            builder.ApplicationAssemblies.Add(typeof(TStartup).GetTypeInfo().Assembly);
+            builder.UseRequestCulture<TStartup>("en-GB", "en-US");
+            builder.ConfigureServices(services => {
+                var registrations = services.Where(s => s.ImplementationType != null && s.ImplementationType.Equals(typeof(ApplicationAssembliesStartupServicesFilter)));
+                foreach (var registration in registrations)
+                {
+                    services.Remove(registration);
+                }
+
+                services.AddSingleton<IStartupConfigureServicesFilter>(
+                    new ApplicationAssembliesStartupServicesFilter(new List<Assembly> { typeof(TStartup).GetTypeInfo().Assembly }));
+            });
         }
 
-        protected override TestServer CreateServer(MvcWebApplicationBuilder<TStartup> builder)
+        protected override TestServer CreateServer(IWebHostBuilder builder)
         {
             var originalCulture = CultureInfo.CurrentCulture;
             var originalUICulture = CultureInfo.CurrentUICulture;

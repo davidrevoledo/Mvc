@@ -1,9 +1,10 @@
-// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET  Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.IO;
 using System.Net.Http;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 
 namespace Microsoft.AspNetCore.Mvc.Testing
@@ -84,9 +85,12 @@ namespace Microsoft.AspNetCore.Mvc.Testing
         /// found traversing up the folder hierarchy from the test execution folder is considered as the base path.</param>
         protected WebApplicationTestFixture(string solutionSearchPattern, string solutionRelativePath)
         {
-            var builder = new MvcWebApplicationBuilder<TStartup>()
-                .UseSolutionRelativeContentRoot(solutionRelativePath)
-                .UseApplicationAssemblies();
+            var builder = WebHostBuilderTestingExtensions.FromStartup<TStartup>(GetArguments()) ?? new WebHostBuilder();
+
+            builder
+                .UseStartup<TStartup>()
+                .UseApplicationAssemblies<TStartup>()
+                .UseSolutionRelativeContentRoot(solutionRelativePath);
 
             ConfigureApplication(builder);
             _server = CreateServer(builder);
@@ -96,21 +100,24 @@ namespace Microsoft.AspNetCore.Mvc.Testing
         }
 
         /// <summary>
+        /// Creates the arguments passed to <c>CreateDefaultBuilder(string[] args) when initializing the host.</c>
+        /// </summary>
+        /// <returns>The arguments to passed to <c>CreateDefaultbuilder(string[] args)</c>.</returns>
+        protected virtual string[] GetArguments() => new string[0];
+
+        /// <summary>
         /// Creates the <see cref="TestServer"/> with the bootstrapped application in <paramref name="builder"/>.
         /// </summary>
-        /// <param name="builder">The <see cref="MvcWebApplicationBuilder{TStartup}"/> used to
+        /// <param name="builder">The <see cref="IWebHostBuilder"/> used to
         /// create the server.</param>
         /// <returns>The <see cref="TestServer"/> with the bootstrapped application.</returns>
-        protected virtual TestServer CreateServer(MvcWebApplicationBuilder<TStartup> builder)
-        {
-            return builder.Build();
-        }
+        protected virtual TestServer CreateServer(IWebHostBuilder builder) => new TestServer(builder);
 
         /// <summary>
         /// Gives a fixture an opportunity to configure the application before it gets built.
         /// </summary>
-        /// <param name="builder">The <see cref="MvcWebApplicationBuilder{TStartup}"/> for the application.</param>
-        protected virtual void ConfigureApplication(MvcWebApplicationBuilder<TStartup> builder)
+        /// <param name="builder">The <see cref="IWebHostBuilder"/> for the application.</param>
+        protected virtual void ConfigureApplication(IWebHostBuilder builder)
         {
         }
 

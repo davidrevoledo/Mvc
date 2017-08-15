@@ -402,5 +402,15 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             // Assert
             Assert.Equal(expected, response.Trim());
         }
+
+        [Fact]
+        public async Task TestingInfrastructure_InvokesCreateDefaultBuilder()
+        {
+            // Act
+            var response = await Client.GetStringAsync("Testing/Builder");
+
+            // Assert
+            Assert.Equal("true", response);
+        }
     }
 }
