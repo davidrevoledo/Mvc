@@ -15,6 +15,7 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
     {
         // Internal for unit testing
         internal static readonly object TempDataSavedKey = new object();
+        internal static readonly object TempDataUnhandledExceptionKey = new object();
 
         private readonly ITempDataDictionaryFactory _factory;
 
@@ -35,6 +36,13 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
                 context.HttpContext.Response.OnStarting((state) =>
                 {
                     var saveTempDataContext = (SaveTempDataContext)state;
+
+                    if (saveTempDataContext.HttpContext.Items.TryGetValue(
+                        TempDataUnhandledExceptionKey,
+                        out var unhandledException))
+                    {
+                        return Task.CompletedTask;
+                    }
 
                     // If temp data was already saved, skip trying to save again as the calls here would potentially fail
                     // because the session feature might not be available at this point.
@@ -66,6 +74,14 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
         /// <inheritdoc />
         public void OnResourceExecuted(ResourceExecutedContext context)
         {
+            // If there is an unhandled exception, we would like to avoid setting tempdata as 
+            // the end user is going to see an error page anyway and also it helps us in avoiding
+            // accessing resources like Session too late in the request lifecyle where SessionFeature might
+            // not be available.
+            if (!context.HttpContext.Response.HasStarted && context.Exception != null)
+            {
+                context.HttpContext.Items.Add(TempDataUnhandledExceptionKey, true);
+            }
         }
 
         /// <inheritdoc />

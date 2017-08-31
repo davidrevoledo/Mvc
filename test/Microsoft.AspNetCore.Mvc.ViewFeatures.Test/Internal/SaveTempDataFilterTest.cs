@@ -118,6 +118,29 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
             tempDataFactory.Verify(tdf => tdf.GetTempData(It.IsAny<HttpContext>()), Times.Never());
         }
 
+        [Fact]
+        public async Task OnResourceExecuting_DoesNotSaveTempData_WhenUnhandledExceptionOccurs()
+        {
+            // Arrange
+            var responseFeature = new TestResponseFeature();
+            var httpContext = GetHttpContext(responseFeature);
+            // Indicate that an unhandled exception occurred while executing current request
+            httpContext.Items[SaveTempDataFilter.TempDataUnhandledExceptionKey] = true;
+            var tempDataFactory = new Mock<ITempDataDictionaryFactory>(MockBehavior.Strict);
+            tempDataFactory
+                .Setup(f => f.GetTempData(It.IsAny<HttpContext>()))
+                .Verifiable();
+            var filter = new SaveTempDataFilter(tempDataFactory.Object);
+            var context = GetResourceExecutingContext(httpContext);
+            filter.OnResourceExecuting(context); // registers callback
+
+            // Act
+            await responseFeature.FireOnSendingHeadersAsync();
+
+            // Assert
+            tempDataFactory.Verify(tdf => tdf.GetTempData(It.IsAny<HttpContext>()), Times.Never());
+        }
+
         [Theory]
         [MemberData(nameof(ActionResultsData))]
         public async Task OnResultExecuting_SavesTempData_WhenTempData_NotSavedAlready(IActionResult result)
