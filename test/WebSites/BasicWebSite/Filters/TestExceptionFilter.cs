@@ -10,9 +10,9 @@ namespace BasicWebSite.Filters
     {
         public override void OnException(ExceptionContext context)
         {
-            if (context.HttpContext.Request.Query.TryGetValue("handleException", out var handle))
+            if (context.HttpContext.Request.Query.TryGetValue("handleException", out var handleException))
             {
-                if (handle.Equals("true"))
+                if (handleException.Equals("true"))
                 {
                     context.Result = new ContentResult() { Content = "Exception was handled in TestExceptionFilter", StatusCode = 200 };
                     context.ExceptionHandled = true;

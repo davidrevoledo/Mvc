@@ -15,6 +15,8 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
     {
         // Internal for unit testing
         internal static readonly object TempDataSavedKey = new object();
+
+        // Key to indicate if executing current request resulted in an unhandled exception
         internal static readonly object TempDataUnhandledExceptionKey = new object();
 
         private readonly ITempDataDictionaryFactory _factory;
