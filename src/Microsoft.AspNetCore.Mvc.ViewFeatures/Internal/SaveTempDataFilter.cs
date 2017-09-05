@@ -1,6 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -14,10 +15,7 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
     public class SaveTempDataFilter : IResourceFilter, IResultFilter
     {
         // Internal for unit testing
-        internal static readonly object TempDataSavedKey = new object();
-
-        // Key to indicate if executing current request resulted in an unhandled exception
-        internal static readonly object TempDataUnhandledExceptionKey = new object();
+        internal static readonly object SaveTempDataFilterContextKey = new object();
 
         private readonly ITempDataDictionaryFactory _factory;
 
@@ -33,12 +31,23 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
         /// <inheritdoc />
         public void OnResourceExecuting(ResourceExecutingContext context)
         {
+            if (!context.HttpContext.Items.ContainsKey(SaveTempDataFilterContextKey))
+            {
+                var tempDataContext = new SaveTempDataContext()
+                {
+                    Filters = context.Filters,
+                    TempDataDictionaryFactory = _factory
+                };
+                context.HttpContext.Items.Add(SaveTempDataFilterContextKey, tempDataContext);
+            }
+
             if (!context.HttpContext.Response.HasStarted)
             {
                 context.HttpContext.Response.OnStarting((state) =>
                 {
-                    var saveTempDataContext = (SaveTempDataContext)state;
+                    var httpContext = state as HttpContext;
 
+                    var saveTempDataContext = GetTempDataContext(context.HttpContext);
                     if (saveTempDataContext.RequestHasUnhandledException)
                     {
                         return Task.CompletedTask;
@@ -58,16 +67,11 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
                         result: null,
                         factory: saveTempDataContext.TempDataDictionaryFactory,
                         filters: saveTempDataContext.Filters,
-                        httpContext: saveTempDataContext.HttpContext);
+                        httpContext: httpContext);
 
                     return Task.CompletedTask;
                 },
-                state: new SaveTempDataContext()
-                {
-                    Filters = context.Filters,
-                    HttpContext = context.HttpContext,
-                    TempDataDictionaryFactory = _factory
-                });
+                state: context.HttpContext);
             }
         }
 
@@ -80,7 +84,11 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
             // not be available.
             if (!context.HttpContext.Response.HasStarted && context.Exception != null)
             {
-                context.HttpContext.Items.Add(TempDataUnhandledExceptionKey, true);
+                var saveTempDataContext = GetTempDataContext(context.HttpContext);
+                if (saveTempDataContext != null)
+                {
+                    saveTempDataContext.RequestHasUnhandledException = true;
+                }
             }
         }
 
@@ -98,12 +106,23 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
             if (!context.HttpContext.Response.HasStarted)
             {
                 SaveTempData(context.Result, _factory, context.Filters, context.HttpContext);
-                // If SaveTempDataFilter got added twice this might already be in there.
-                if (!context.HttpContext.Items.ContainsKey(TempDataSavedKey))
+
+                var saveTempDataContext = GetTempDataContext(context.HttpContext);
+                if (saveTempDataContext != null)
                 {
-                    context.HttpContext.Items.Add(TempDataSavedKey, true);
+                    saveTempDataContext.TempDataSaved = true;
                 }
             }
+        }
+
+        private SaveTempDataContext GetTempDataContext(HttpContext httpContext)
+        {
+            SaveTempDataContext saveTempDataContext = null;
+            if (httpContext.Items.TryGetValue(SaveTempDataFilterContextKey, out var value))
+            {
+                saveTempDataContext = value as SaveTempDataContext;
+            }
+            return saveTempDataContext;
         }
 
         private static void SaveTempData(
@@ -130,26 +149,11 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
             tempData.Save();
         }
 
-        private class SaveTempDataContext
+        internal class SaveTempDataContext
         {
-            public bool RequestHasUnhandledException
-            {
-                get
-                {
-                    return HttpContext.Items.ContainsKey(TempDataUnhandledExceptionKey);
-                }
-            }
-
-            public bool TempDataSaved
-            {
-                get
-                {
-                    return HttpContext.Items.ContainsKey(TempDataSavedKey);
-                }
-            }
-
+            public bool RequestHasUnhandledException { get; set; }
+            public bool TempDataSaved { get; set; }
             public IList<IFilterMetadata> Filters { get; set; }
-            public HttpContext HttpContext { get; set; }
             public ITempDataDictionaryFactory TempDataDictionaryFactory { get; set; }
         }
     }

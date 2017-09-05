@@ -102,7 +102,7 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
             // Arrange
             var responseFeature = new TestResponseFeature();
             var httpContext = GetHttpContext(responseFeature);
-            httpContext.Items[SaveTempDataFilter.TempDataSavedKey] = true; // indicate that tempdata was already saved
+            httpContext.Items[SaveTempDataFilter.SaveTempDataFilterContextKey] = new SaveTempDataFilter.SaveTempDataContext() { TempDataSaved = true };
             var tempDataFactory = new Mock<ITempDataDictionaryFactory>(MockBehavior.Strict);
             tempDataFactory
                 .Setup(f => f.GetTempData(It.IsAny<HttpContext>()))
@@ -124,8 +124,7 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
             // Arrange
             var responseFeature = new TestResponseFeature();
             var httpContext = GetHttpContext(responseFeature);
-            // Indicate that an unhandled exception occurred while executing current request
-            httpContext.Items[SaveTempDataFilter.TempDataUnhandledExceptionKey] = true;
+            httpContext.Items[SaveTempDataFilter.SaveTempDataFilterContextKey] = new SaveTempDataFilter.SaveTempDataContext() { RequestHasUnhandledException = true };
             var tempDataFactory = new Mock<ITempDataDictionaryFactory>(MockBehavior.Strict);
             tempDataFactory
                 .Setup(f => f.GetTempData(It.IsAny<HttpContext>()))
