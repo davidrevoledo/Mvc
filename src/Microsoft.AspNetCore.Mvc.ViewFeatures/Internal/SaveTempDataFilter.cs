@@ -39,9 +39,7 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
                 {
                     var saveTempDataContext = (SaveTempDataContext)state;
 
-                    if (saveTempDataContext.HttpContext.Items.TryGetValue(
-                        TempDataUnhandledExceptionKey,
-                        out var unhandledException))
+                    if (saveTempDataContext.RequestHasUnhandledException)
                     {
                         return Task.CompletedTask;
                     }
@@ -51,7 +49,7 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
                     // Example: An action returns NoContentResult and since NoContentResult does not write anything to
                     // the body of the response, this delegate would get executed way late in the pipeline at which point
                     // the session feature would have been removed.
-                    if (saveTempDataContext.HttpContext.Items.TryGetValue(TempDataSavedKey, out var obj))
+                    if (saveTempDataContext.TempDataSaved)
                     {
                         return Task.CompletedTask;
                     }
@@ -134,6 +132,22 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Internal
 
         private class SaveTempDataContext
         {
+            public bool RequestHasUnhandledException
+            {
+                get
+                {
+                    return HttpContext.Items.ContainsKey(TempDataUnhandledExceptionKey);
+                }
+            }
+
+            public bool TempDataSaved
+            {
+                get
+                {
+                    return HttpContext.Items.ContainsKey(TempDataSavedKey);
+                }
+            }
+
             public IList<IFilterMetadata> Filters { get; set; }
             public HttpContext HttpContext { get; set; }
             public ITempDataDictionaryFactory TempDataDictionaryFactory { get; set; }
